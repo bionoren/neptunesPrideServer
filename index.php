@@ -37,14 +37,15 @@
         $game = $data->{'game'};
 
         $authData = getGameData($game, $cookie);
+        unset($cookie);
 
         $report = $authData->{'report'};
         $uid = $report->{'player_uid'};
         if(!is_null($uid) && $uid != -1) {
-            $starFields = array('uid', 'ships', 'naturalResources', 'economy', 'garrison', 'buildRate', 'industry', 'science');
+            $starFields = array('uid', 'ships', 'naturalResources', 'economy', 'garrison', 'industry', 'science');
             $fleetFields = array('uid', 'x', 'y', 'ships', 'puid', 'destuid', 'orbitinguid');
 
-            $result = $db->select('users', array('ID'), array('uid'=>$uid));
+            $result = $db->select('users', array('ID'), array('uid'=>$uid, 'gameID'=>$game));
         	$user = $db->fetchArray($result);
             $user = $user[0];
             if(!$user) {

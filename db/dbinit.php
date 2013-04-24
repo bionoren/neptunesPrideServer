@@ -45,7 +45,6 @@
     $fields[] = new DBField("userID", DBField::NUM, -1, "users", "ID");
 	$fields[] = new DBField("uid", DBField::NUM);
 	$fields[] = new DBField("economy", DBField::NUM);
-    $fields[] = new DBField("buildRate", DBField::NUM);
 	$fields[] = new DBField("garrison", DBField::NUM);
     $fields[] = new DBField("industry", DBField::NUM);
     $fields[] = new DBField("naturalResources", DBField::NUM);
