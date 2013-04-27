@@ -36,8 +36,8 @@
     //shares
     $fields = array();
 	$fields[] = new DBField("userID", DBField::NUM, -1 , "users", "ID");
-    $fields[] = new DBField("userID2", DBField::NUM, -1, "users", "ID");
-    $fields[] = new DBField("pendingID", DBField::NUM);
+    $fields[] = new DBField("userID2", DBField::NUM, -1);
+    $fields[] = new DBField("pending", DBField::NUM, 1); //NOTE: you're always waiting on userID2
 	$db->createTable("shares", $fields);
 
     //stars
@@ -58,6 +58,7 @@
     //fleets
 	$fields = array();
     $fields[] = new DBField("userID", DBField::NUM, -1, "users", "ID");
+    $fields[] = new DBField("name", DBField::STRING);
     $fields[] = new DBField("uid", DBField::NUM);
 	$fields[] = new DBField("x", DBField::NUM);
 	$fields[] = new DBField("y", DBField::NUM);

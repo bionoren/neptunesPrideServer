@@ -43,7 +43,7 @@
         $uid = $report->{'player_uid'};
         if(!is_null($uid) && $uid != -1) {
             $starFields = array('uid', 'ships', 'naturalResources', 'economy', 'garrison', 'industry', 'science');
-            $fleetFields = array('uid', 'x', 'y', 'ships', 'puid', 'destuid', 'orbitinguid');
+            $fleetFields = array('uid', 'name', 'x', 'y', 'ships', 'puid', 'destuid', 'orbitinguid');
 
             $result = $db->select('users', array('ID'), array('uid'=>$uid, 'gameID'=>$game));
         	$user = $db->fetchArray($result);
@@ -55,13 +55,12 @@
                 $user = $user[0] or die('Insert fail');
             }
 
-            $gameTime = $data->{'gameTime'};
-            $tick = $data->{'tick'};
-            $tickFragment = $data->{'tickFragment'};
-
             $action = $data->{'action'};
             if($action == 'push') {
                 $gameTime = $data->{'gameTime'};
+                $tick = $data->{'tick'};
+                $tickFragment = $data->{'tickFragment'};
+
                 $starData = $data->{'starData'};
                 $fleetData = $data->{'fleetData'};
 
@@ -95,45 +94,40 @@
             } elseif($action == 'pull') {
                 $result = $db->query('SELECT * FROM users WHERE userID='.$user['ID'].' OR userID2='.$user['ID']);
                 $shareRows = $db->fetchArray($result);
-                print '{';
-                $i = 0;
                 foreach($shareRows as $shareRow) {
                     $otherUser = ($shareRow['userID'] == $user['ID'])?$shareRow['userID2']:$shareRow['userID'];
-                    $result = $db->query('SELECT * FROM star WHERE userID='.$user['ID']);
+                    $result = $db->query('SELECT * FROM star WHERE userID='.$otherUser);
                     $stars = $db->fetchArray($result);
-                    print '"'.$i++.'":{';
-                    $j = 0;
-                    foreach($stars as $star) {
-                        print '"'.$j++.'":{';
-                        //TODO: print star data
-                        print '},';
-                    }
-                    print '},';
-                    /*
-	$fields[] = new DBField("uid", DBField::NUM);
-	$fields[] = new DBField("economy", DBField::NUM);
-    $fields[] = new DBField("buildRate", DBField::NUM);
-	$fields[] = new DBField("garrison", DBField::NUM);
-    $fields[] = new DBField("industry", DBField::NUM);
-    $fields[] = new DBField("naturalResources", DBField::NUM);
-    $fields[] = new DBField("resources", DBField::NUM);
-    $fields[] = new DBField("science", DBField::NUM);
-    $fields[] = new DBField("ships", DBField::NUM);
-    $fields[] = new DBField("gameTime", DBField::NUM);
-    $fields[] = new DBField("tick", DBField::NUM);
-    $fields[] = new DBField("tick_fragment", DBField::NUM);*/
 
+                    $result = $db->query('SELECT fleets.*, users.uid as puid FROM fleets JOIN users on fleets.userID=users.ID WHERE fleets.userID='.$otherUser);
+                    $fleets = $db->fetchArray($result);
+                    $ret = array('stars'=>$stars, 'fleets'=>$fleets);
+                    print json_encode($ret);
                 }
-                print '}';
             } elseif($action == 'share') {
-                $shareID = $data->{'shareID'};
-                //TODO: look for a request with me and pendingID = shareID
-                //if you don't find it, create it
+                $shareUserID = $data->{'shareUserID'};
+                //look for a request with them and me
+                $result = $db->select('shares', array('ID'), array('userID'=>$shareUserID, 'userID2'=>$user['ID']));
+                $shares = $db->fetchArray($result);
+                if(count($shares) > 0) {
+                    //we found it, so confirm it
+                    $db->update('shares', array('pending'=>0), array('ID'=>$shares[0]['ID']));
+                    print json_encode(array("reload"=>true));
+                } else {
+                    //if you don't find it, create it
+                    $db->insert('shares', array('userID'=>$user['ID'], 'userID2'=>$shareUserID));
+                    print json_encode(array("reload"=>false));
+                }
             } elseif($action == 'unshare') {
-                $shareID = $data->{'shareID'};
-                //TODO: look for any pending requests or request with me as user or user2 with the other being shareID, and delete them
+                $shareUserID = $data->{'shareUserID'};
+                $db->query('DELETE FROM shares WHERE (userID='.$user['ID'].' and userID2='.$shareUserID.') or (userID='.$shareUserID.' and userID2='.$user['ID'].')');
             } elseif($action == 'shares') {
-                //TODO: return a list of my active and pending shares (them pending and me pending) along with lastUpdated timestamps
+                //return a list of my active and pending shares (them pending and me pending) along with lastUpdated timestamps
+                $result = $db->query('SELECT shares.*, users1.lastUpdated, users2.lastUpdated FROM shares JOIN users as users1 on shares.userID=users1.ID JOIN users as users2 on shares.userID2=users2.ID WHERE userID='.$user['ID'].' || userID2='.$user['ID']);
+                $shares = $db->fetchArray($result);
+                $result = $db->query('SELECT * FROM shares WHERE pending=1 and (userID='.$user['ID'].' or userID2='.$user['ID'].')');
+                $pending = $db->fetchArray($result);
+                print json_encode(array_merge($shares, $pending), JSON_NUMERIC_CHECK);
             }
         }
     }

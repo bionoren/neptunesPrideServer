@@ -248,7 +248,7 @@
                 $fields["error"] = $this->db->lastErrorMsg();
                 $fields["date"] = time();
                 $this->insert("errorLog", $fields);
-                $msg = "sql = $sql<br><span style='color:red'>".$this->db->lastErrorMsg()."</span><br>";
+                $msg = "sql = $sql<br><span style='color:red'>".$fields["error"]."</span><br>";
                 throw new \InvalidArgumentException($msg);
             }
             return $ret;
@@ -298,7 +298,7 @@
 				if(is_null($val)) {
 					$sql .= $key."=NULL,";
 				} else {
-	                $sql .= $key."='".$val."',";
+	                $sql .= $key."='".\SQLite3::escapeString($val)."',";
 				}
             }
             $sql = substr($sql, 0, -1).$this::getWhereClause($whereFields);
