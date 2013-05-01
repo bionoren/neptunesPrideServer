@@ -40,34 +40,12 @@
     $fields[] = new DBField("pending", DBField::NUM, 1); //NOTE: you're always waiting on userID2
 	$db->createTable("shares", $fields);
 
-    //stars
-	$fields = array();
-    $fields[] = new DBField("userID", DBField::NUM, -1, "users", "ID");
-	$fields[] = new DBField("uid", DBField::NUM);
-	$fields[] = new DBField("economy", DBField::NUM);
-	$fields[] = new DBField("garrison", DBField::NUM);
-    $fields[] = new DBField("industry", DBField::NUM);
-    $fields[] = new DBField("naturalResources", DBField::NUM);
-    $fields[] = new DBField("science", DBField::NUM);
-    $fields[] = new DBField("ships", DBField::NUM);
-    $fields[] = new DBField("gameTime", DBField::NUM);
-    $fields[] = new DBField("tick", DBField::NUM);
-    $fields[] = new DBField("tickFragment", DBField::NUM);
-    $db->createTable("stars", $fields);
-
-    //fleets
-	$fields = array();
-    $fields[] = new DBField("userID", DBField::NUM, -1, "users", "ID");
-    $fields[] = new DBField("name", DBField::STRING);
-    $fields[] = new DBField("uid", DBField::NUM);
-	$fields[] = new DBField("x", DBField::NUM);
-	$fields[] = new DBField("y", DBField::NUM);
-    $fields[] = new DBField("ships", DBField::NUM);
-    $fields[] = new DBField("puid", DBField::NUM);
-    $fields[] = new DBField("destuid", DBField::NUM);
-    $fields[] = new DBField("orbitinguid", DBField::NUM);
-    $fields[] = new DBField("gameTime", DBField::NUM);
-    $fields[] = new DBField("tick", DBField::NUM);
-    $fields[] = new DBField("tickFragment", DBField::NUM);
-	$db->createTable("fleets", $fields);
+    //reports
+    $fields = array();
+	$fields[] = new DBField("userID", DBField::NUM, -1 , "users", "ID");
+    $fields[] = new DBField("gameTime", DBField::NUM, 0);
+    $fields[] = new DBField("tick", DBField::NUM, -1);
+    $fields[] = new DBField("tickFragment", DBField::NUM, 0);
+    $fields[] = new DBField("data", DBField::STRING);
+	$db->createTable("reports", $fields);
 ?>

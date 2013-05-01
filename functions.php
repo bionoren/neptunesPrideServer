@@ -72,15 +72,54 @@
 		return hash("sha512", $hash.$password.$hash);
 	}
 
+    /**
+     * Loads game data from ironhelmet.com into JSON.
+     * @param STRING $game Game number
+     * @param STRING $cookie Cookie information to use in authenticating the request.
+     * @return STRING decoded JSON game data.
+     */
     function getGameData($game, $cookie) {
         $curl = curl_init();
         curl_setopt($curl, CURLOPT_POST, true);
         curl_setopt($curl, CURLOPT_URL, 'http://triton.ironhelmet.com/grequest/order');
-        curl_setopt($curl, CURLOPT_COOKIE, 'ACSID='.trim($cookie));
+        curl_setopt($curl, CURLOPT_COOKIE, trim($cookie));
         curl_setopt($curl, CURLOPT_POSTFIELDS, 'type=order&order=full_universe_report&game_number='.$game);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
         $json = curl_exec($curl);
         curl_close($curl);
-        return json_decode($json);
+        $ret = json_decode($json);
+        printJsonError();
+        return $ret;
+    }
+
+    /**
+     * Prints an error message for the last json decode.
+     * @return INT result of json_last_error()
+     */
+    function printJsonError() {
+        $ret = json_last_error();
+        switch($ret) {
+            case JSON_ERROR_NONE:
+                break;
+            case JSON_ERROR_DEPTH:
+                print ' - Maximum stack depth exceeded';
+                break;
+            case JSON_ERROR_STATE_MISMATCH:
+                print ' - Underflow or the modes mismatch';
+                break;
+            case JSON_ERROR_CTRL_CHAR:
+                print ' - Unexpected control character found';
+                break;
+            case JSON_ERROR_SYNTAX:
+                print ' - Syntax error, malformed JSON';
+                break;
+            case JSON_ERROR_UTF8:
+                print ' - Malformed UTF-8 characters, possibly incorrectly encoded';
+                break;
+            default:
+                print ' - Unknown error';
+                break;
+        }
+        return $ret;
     }
 ?>

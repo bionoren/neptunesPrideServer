@@ -11,29 +11,9 @@
 
     if($_POST['data']) {
         $data = json_decode($_POST['data']);
-        switch(json_last_error()) {
-            case JSON_ERROR_NONE:
-                break;
-            case JSON_ERROR_DEPTH:
-                print ' - Maximum stack depth exceeded';
-                break;
-            case JSON_ERROR_STATE_MISMATCH:
-                print ' - Underflow or the modes mismatch';
-                break;
-            case JSON_ERROR_CTRL_CHAR:
-                print ' - Unexpected control character found';
-                break;
-            case JSON_ERROR_SYNTAX:
-                print ' - Syntax error, malformed JSON';
-                break;
-            case JSON_ERROR_UTF8:
-                print ' - Malformed UTF-8 characters, possibly incorrectly encoded';
-                break;
-            default:
-                print ' - Unknown error';
-                break;
-        }
-        $cookie = $data->{'ACSID'};
+        printJsonError();
+
+        $cookie = $data->{'cookie'};
         $game = $data->{'game'};
 
         $authData = getGameData($game, $cookie);
@@ -42,9 +22,6 @@
         $report = $authData->{'report'};
         $uid = $report->{'player_uid'};
         if(!is_null($uid) && $uid != -1) {
-            $starFields = array('uid', 'ships', 'naturalResources', 'economy', 'garrison', 'industry', 'science');
-            $fleetFields = array('uid', 'name', 'x', 'y', 'ships', 'puid', 'destuid', 'orbitinguid');
-
             $result = $db->select('users', array('ID'), array('uid'=>$uid, 'gameID'=>$game));
         	$user = $db->fetchArray($result);
             $user = $user[0];
@@ -61,49 +38,23 @@
                 $tick = $data->{'tick'};
                 $tickFragment = $data->{'tickFragment'};
 
-                $starData = $data->{'starData'};
-                $fleetData = $data->{'fleetData'};
-
-                $fields = array();
-                $fields['userID'] = $user['ID'];
-                $fields['gameTime'] = $gameTime;
-                $fields['tick'] = $tick;
-                $fields['tickFragment'] = $tickFragment;
-                foreach($starData as $star) {
-                    foreach($starFields as $field) {
-                        $fields[$field] = $star->{$field};
-                    }
-
-                    $db->insert("stars", $fields);
-                }
-
-                $fields = array();
-                $fields['userID'] = $user['ID'];
-                $fields['gameTime'] = $gameTime;
-                $fields['tick'] = $tick;
-                $fields['tickFragment'] = $tickFragment;
-                foreach($fleetData as $fleet) {
-                    foreach($fleetFields as $field) {
-                        $fields[$field] = $fleet->{$field};
-                    }
-
-                    $db->insert("fleets", $fields);
-                }
+                $reportData = $data->{'data'};
+                $db->insert('reports', array('userID'=>$user['ID'], 'gameTime'=>$gameTime, 'tick'=>$tick, 'tickFragment'=>$tickFragment, 'data'=>serialize($reportData)));
 
                 $db->update('users', array('lastUpdated'=>$gameTime), array('ID'=>$user['ID']));
             } elseif($action == 'pull') {
-                $result = $db->query('SELECT * FROM users WHERE userID='.$user['ID'].' OR userID2='.$user['ID']);
-                $shareRows = $db->fetchArray($result);
-                foreach($shareRows as $shareRow) {
-                    $otherUser = ($shareRow['userID'] == $user['ID'])?$shareRow['userID2']:$shareRow['userID'];
-                    $result = $db->query('SELECT * FROM star WHERE userID='.$otherUser);
-                    $stars = $db->fetchArray($result);
+                $tick = $data->{'tick'};
 
-                    $result = $db->query('SELECT fleets.*, users.uid as puid FROM fleets JOIN users on fleets.userID=users.ID WHERE fleets.userID='.$otherUser);
-                    $fleets = $db->fetchArray($result);
-                    $ret = array('stars'=>$stars, 'fleets'=>$fleets);
-                    print json_encode($ret);
+                $result = $db->query('SELECT * FROM shares WHERE (userID='.$user['ID'].' OR userID2='.$user['ID'].') AND tick='.$tick);
+                $shareRows = $db->fetchArray($result);
+                $otherUser = ($shareRow['userID'] == $user['ID'])?$shareRow['userID2']:$shareRow['userID'];
+                $result = $db->query('SELECT * FROM reports WHERE userID='.$otherUser);
+                $reports = $db->fetchArray($result);
+                foreach($reports as &$report) {
+                    $report['data'] = unserialize($report['data']);
                 }
+
+                print json_encode($reports, JSON_NUMERIC_CHECK);
             } elseif($action == 'share') {
                 $shareUserID = $data->{'shareUserID'};
                 //look for a request with them and me
@@ -112,20 +63,20 @@
                 if(count($shares) > 0) {
                     //we found it, so confirm it
                     $db->update('shares', array('pending'=>0), array('ID'=>$shares[0]['ID']));
-                    print json_encode(array("reload"=>true));
+                    print json_encode(array("reload"=>true), JSON_NUMERIC_CHECK);
                 } else {
                     //if you don't find it, create it
                     $db->insert('shares', array('userID'=>$user['ID'], 'userID2'=>$shareUserID));
-                    print json_encode(array("reload"=>false));
+                    print json_encode(array("reload"=>false), JSON_NUMERIC_CHECK);
                 }
             } elseif($action == 'unshare') {
                 $shareUserID = $data->{'shareUserID'};
-                $db->query('DELETE FROM shares WHERE (userID='.$user['ID'].' and userID2='.$shareUserID.') or (userID='.$shareUserID.' and userID2='.$user['ID'].')');
+                $db->query('DELETE FROM shares WHERE (userID='.$user['ID'].' AND userID2='.$shareUserID.') OR (userID='.$shareUserID.' AND userID2='.$user['ID'].')');
             } elseif($action == 'shares') {
                 //return a list of my active and pending shares (them pending and me pending) along with lastUpdated timestamps
-                $result = $db->query('SELECT shares.*, users1.lastUpdated, users2.lastUpdated FROM shares JOIN users as users1 on shares.userID=users1.ID JOIN users as users2 on shares.userID2=users2.ID WHERE userID='.$user['ID'].' || userID2='.$user['ID']);
+                $result = $db->query('SELECT shares.*, users1.lastUpdated, users2.lastUpdated FROM shares JOIN users as users1 on shares.userID=users1.ID JOIN users as users2 on shares.userID2=users2.ID WHERE (userID='.$user['ID'].' OR userID2='.$user['ID'].') AND pending=0');
                 $shares = $db->fetchArray($result);
-                $result = $db->query('SELECT * FROM shares WHERE pending=1 and (userID='.$user['ID'].' or userID2='.$user['ID'].')');
+                $result = $db->query('SELECT * FROM shares WHERE pending=1 AND (userID='.$user['ID'].' OR userID2='.$user['ID'].')');
                 $pending = $db->fetchArray($result);
                 print json_encode(array_merge($shares, $pending), JSON_NUMERIC_CHECK);
             }
